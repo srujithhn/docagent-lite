@@ -29,11 +29,14 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 vi.mock("@ai-sdk/openai", () => ({
   createOpenAI: () => ({ responses: () => "openai/gpt-6-astra" }),
 }));
+vi.mock("@ai-sdk/google", () => ({
+  createGoogleGenerativeAI: () => () => "gemini-model",
+}));
 vi.mock("ai", async (original) => ({
   ...(await original<typeof import("ai")>()),
   streamText: mocks.stream,
 }));
-import { generateChecklist } from "./checklist.functions";
+import { generateChecklist, isOutOfCredits } from "./checklist.functions";
 const run = generateChecklist as unknown as (input: {
   data: { taskKey: string; situation: string; sessionId: string; idMasked: boolean };
 }) => Promise<{
@@ -44,6 +47,8 @@ const run = generateChecklist as unknown as (input: {
 }>;
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
+  mocks.stream.mockReset();
   vi.stubEnv("LOVABLE_API_KEY", "test-only-key");
   mocks.insert.mockReturnValue({
     select: () => ({ single: async () => ({ data: { id: "checklist" } }) }),
@@ -83,4 +88,63 @@ describe("Checklist server failure recovery", () => {
       log.mockRestore();
     },
   );
+});
+
+const goodOutput = {
+  groups: [{ name: "Identity", items: [] }],
+  warnings: [],
+  not_in_sources: null,
+  show_checklist: true,
+  headline: null,
+};
+
+function failingStream(statusCode: number) {
+  return (options: { onError: (e: { error: unknown }) => void }) => {
+    options.onError({
+      error: new Error("stream broke", { cause: { statusCode, message: "upstream failure" } }),
+    });
+    return { output: Promise.reject(new Error("No readable output")) };
+  };
+}
+
+describe("Own Gemini key as backup", () => {
+  const input = {
+    data: { taskKey: "bank_kyc", situation: "I have PAN", sessionId: "session", idMasked: false },
+  };
+
+  it("uses the Gemini key when the gateway is out of credits (402)", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    mocks.stream
+      .mockImplementationOnce(failingStream(402))
+      .mockImplementationOnce(() => ({ output: Promise.resolve(goodOutput) }));
+    const result = await run(input);
+    expect(mocks.stream).toHaveBeenCalledTimes(2);
+    expect(mocks.stream.mock.calls[1]?.[0].model).toBe("gemini-model");
+    expect(result.fallback).toBe(false);
+  });
+
+  it("does not try Gemini for other errors such as 429", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-gemini-key");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.stream.mockImplementation(failingStream(429));
+    const result = await run(input);
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(result.fallback).toBe(true);
+    log.mockRestore();
+  });
+
+  it("shows the official list when out of credits and no Gemini key is set", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.stream.mockImplementation(failingStream(402));
+    const result = await run(input);
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(result.fallback).toBe(true);
+    log.mockRestore();
+  });
+
+  it("detects 402 anywhere in the error chain", () => {
+    expect(isOutOfCredits(new Error("x", { cause: { statusCode: 402 } }))).toBe(true);
+    expect(isOutOfCredits({ statusCode: 429 })).toBe(false);
+    expect(isOutOfCredits(null)).toBe(false);
+  });
 });
