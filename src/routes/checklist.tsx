@@ -11,6 +11,7 @@ import { TASKS, GROUPS, getSessionId, type TaskKey } from "@/lib/tasks";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { documentStatus, maskIds } from "@/lib/checklist";
 
 export const Route = createFileRoute("/checklist")({
   head: () => ({
@@ -48,8 +49,10 @@ function ChecklistPage() {
     setLoading(true);
     setError(null);
     setResult(null);
+    const safeSituation = maskIds(situation);
+    setSituation(safeSituation.text);
     try {
-      setResult(await run({ data: { taskKey: task, situation, sessionId: getSessionId() } }));
+      setResult(await run({ data: { taskKey: task, situation: safeSituation.text, idMasked: safeSituation.masked, sessionId: getSessionId() } }));
       setTimeout(() => document.getElementById("result")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -99,16 +102,19 @@ function ChecklistPage() {
       )}
       {error && <p className="mt-4 rounded-lg bg-warning-soft p-4 text-foreground">{error}</p>}
 
-      {result && <ChecklistView key={result.checklistId} result={result} held={held} taskKey={task!} userId={user?.id ?? null} />}
+      {result && task && <ChecklistView key={result.checklistId} result={result} held={held} taskKey={task} userId={user?.id ?? null} />}
     </div>
   );
 }
 
 function ChecklistView({ result, held, taskKey, userId }: { result: Result; held: Set<string> | null; taskKey: string; userId: string | null }) {
   const { output, source } = result;
-  const groups = GROUPS.map((g) => output.groups.find((x) => x.name === g)).filter((g): g is ChecklistOutput["groups"][number] => !!g && g.items.length > 0);
+  const groups = [...GROUPS, "Official document list"].map((g) => output.groups.find((x) => x.name === g)).filter((g): g is ChecklistOutput["groups"][number] => !!g && g.items.length > 0);
   return (
     <section id="result" className="mt-12 scroll-mt-20 space-y-5">
+      {result.idMasked && <p role="status" className="text-sm text-muted-foreground">We removed an ID number from what you typed. Please never type ID numbers here; this app only needs document names.</p>}
+      {output.headline && <h2 className="break-words text-2xl font-semibold">{output.headline}</h2>}
+      {result.fallback && <div role="status" className="rounded-xl border border-warning/40 bg-warning-soft p-4 font-bold">Our AI is busy right now. Here is the official list for this task. Your situation was not checked.</div>}
       <div className="rounded-xl border border-warning/40 bg-warning-soft p-4 font-bold">
         Always confirm on the official site before you go.
       </div>
@@ -131,12 +137,12 @@ function ChecklistView({ result, held, taskKey, userId }: { result: Result; held
         </div>
       )}
 
-      {groups.map((g) => (
+      {output.show_checklist && groups.map((g) => (
         <div key={g.name} className="rounded-2xl border border-border bg-card p-5 shadow-soft">
           <h3 className="text-lg font-semibold">{g.name}</h3>
           <ul className="mt-3 space-y-3">
             {g.items.map((it, i) => {
-              const status = held && it.doc_type ? (held.has(it.doc_type) ? "have" : "missing") : null;
+              const status = documentStatus(userId ? held : null, it);
               const id = `${g.name}-${i}`;
               return (
                 <li key={id} className={cn("flex gap-3 rounded-lg p-2", status === "have" && "bg-success-soft", status === "missing" && "bg-warning-soft")}>

@@ -1,3 +1,7 @@
 - [x] Prevent duplicate document types, preserve existing rows, and allow expiry updates.
 - [x] Restrict admin page and metrics to the owner, including signed-out denial.
 - [x] Verify phone and desktop: edit every existing document row, reject duplicates directly and through the page, preserve all rows, open Expiring, and deny admin after sign-out; regression tests cover all twelve document types. Live non-owner sign-in remains unavailable.
+- [x] Add official-source fallback and safe AI error diagnostics.
+- [x] Correct declared document ownership and mask ID numbers.
+- [x] Add prominent request headlines and conditional checklist display.
+- [x] Test wrapped stream failures and checklist rules; verify live AI answers and simulated fallback for all five tasks on phone/desktop; confirm clean TypeScript/build output.

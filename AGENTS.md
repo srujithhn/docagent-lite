@@ -31,3 +31,4 @@ use the editor.
 
 - Document saves use the shared save helper and a database duplicate-prevention trigger; this preserves legacy duplicates while rejecting new ones and allowing expiry-only updates.
 - Admin is a public route that shows denial when signed out; its metrics RPC authorizes against the current authenticated account record before reading aggregates, so direct calls cannot bypass access control.
+- Checklist schemas, source-only fallback, ID masking, and ownership resolution live in a browser-safe shared module; server-only AI diagnostics redact sensitive values, and every AI failure returns source data without retries.
