@@ -1,71 +1,67 @@
-# Docagent Lite
+# DocAgent Lite
 
-Build "DocAgent Lite": a mobile-first web app that tells Indian college students exactly which documents they need for a government task, which ones they already have, and reminds them before anything expires. Use Lovable Cloud (auth + database) and Lovable AI for the AI step, so no API key ever sits in the browser. Calm, clean design (white background, one accent colour, large readable text), works well on a phone.
+DocAgent Lite tells Indian college students which documents they need for five common government tasks. It answers only from official sources, and when the source doesn't cover a question it says "Not in our sources yet" instead of guessing.
 
-TAGLINE: "Know exactly which documents you need, before you join the queue."
+**Live app:** https://docagent-lite.lovable.app (no sign-in needed)
 
-PAGES AND FEATURES
+## Why I built it
 
-1. Landing page: tagline, a one-line explanation, a "Get my checklist" button. Trying the checklist must NOT require sign-in.
+Students lose whole days at a Passport Seva Kendra, RTO or bank branch because one document is wrong: an Aadhaar with the hometown address, a certificate in an old surname, a bank account not linked to Aadhaar. The rules exist, but they're spread across official sites. I wanted one place that reads the rules for you, checks them against your situation, and shows its source.
 
-2. Checklist generator (no login needed):
-- User picks ONE task from 5 cards: "Fresh passport (adult)", "Learner's licence (Karnataka)", "New PAN card", "National Scholarship Portal application", "Open a bank account (KYC)".
-- Optional text box: "Tell us your situation in one or two lines" (example placeholder: "I'm 19, I live in a PG in Bengaluru, my Aadhaar has my hometown address").
-- An edge function calls Lovable AI with ONLY the source text for that task from the `sources` table (below) plus the user's situation. System prompt: "You help Indian students prepare documents. Answer ONLY from the SOURCE TEXT. Group the checklist into: Identity, Address, Date of birth, Photos and forms, Other. For each group list the accepted documents and mark which fit the user's situation. Add short warnings for likely problems (e.g. address on ID doesn't match current address). If the user asks about something not in the SOURCE TEXT, say 'Not in our sources yet' and point to the official link. Never invent fees, dates or rules. Output JSON."
-- Render the checklist as tidy grouped cards with checkboxes. Every checklist shows: the official source link, the source's 'last verified' date, and a banner: "Always confirm on the official site before you go."
-- Under each checklist: "Was this checklist correct?" thumbs up / thumbs down + optional comment, saved to a `feedback` table.
-- Log every generated checklist to a `checklists` table (task, created_at, user_id if signed in, anonymous session id otherwise).
+## What it does
 
-3. My documents (sign-in with email magic link):
-- User adds documents from a pick list (Aadhaar, PAN, Passport, Driving licence, Voter ID, 10th marksheet, 12th marksheet, Birth certificate, Bank passbook, Income certificate, Caste certificate, Other) with an OPTIONAL expiry date.
-- There is NO field for ID numbers and NO file upload. Show a small privacy note: "We never ask for ID numbers or photos of your documents."
-- When a signed-in user generates a checklist, mark items they already hold in green and missing ones in amber.
+- **Five tasks:** fresh passport (adult), learner's licence (Karnataka), new PAN card, National Scholarship Portal, bank account KYC.
+- **One line about your situation** ("I'm 19, I live in a PG in Bengaluru, my Aadhaar has my hometown address") turns a generic list into a checklist that marks what you already have and flags likely problems.
+- **Every checklist shows its official link and the date the rules were last verified.**
+- **Optional sign-in** to save which documents you hold and get calendar reminders before they expire.
 
-4. Expiring soon:
-- List the user's documents expiring within 90 days, soonest first.
-- "Add reminder to calendar" button downloads an .ics file with two alerts: 90 days and 30 days before expiry.
+## How I check that it's right
 
-5. Admin metrics page at /admin, visible only to srujithh@gmail.com:
-- Total sign-ups, checklists created (total and per task), share of thumbs-up, and number of users who came back 7+ days after their first visit. Simple cards plus a per-day count of checklists for the last 30 days.
+I treat the checklist like a product spec: it's only as good as its test results.
 
-DATA
-- `sources` table: task_key, task_name, official_url, source_text, last_verified (date). Seed with these 5 rows (last_verified 2026-11-19; mark each as "Draft: verify against the official page"):
+| Round | Cases | Result |
+| --- | --- | --- |
+| First run | 20 cases I wrote: normal, tricky, out of scope, unsafe | 7 of 20 (35%) |
+| After fixes | The same 20 | 20 of 20 (100%) |
+| Blind test | 10 new cases, pass rules written before running | 6 of 10 (60%) |
 
-a) passport_fresh_adult | Fresh passport (adult) | https://www.passportindia.gov.in | "Applicants need proof of present address, proof of date of birth and identity documents. Proof of present address: one document such as Aadhaar, Voter ID, water/electricity/telephone/gas bill, bank account passbook or statement, rent agreement, or Income Tax assessment order. The address on the proof must match the address in the application form. Proof of date of birth: one document such as birth certificate, school leaving or matriculation certificate, PAN card, Aadhaar, driving licence or voter ID with the full date of birth. Carry originals and self-attested photocopies to the Passport Seva Kendra. Use the official Document Advisor on Passport Seva for your exact case."
+It never invented a rule in any round. The failures came from three places, none of them the model itself: gaps in the official content I'd given it, a UI bug that called a document "missing" right after the user said they had it, and refusals that weren't firm enough. The 100% is flattering because I fixed against those same cases; the blind 60% is the honest number. Its two misses to fix next: it drops steps it knows (like the learner's test) when the question is about something else, and it says what's missing without saying what to do next.
 
-b) learner_licence_ka | Learner's licence (Karnataka) | https://sarathi.parivahan.gov.in | "Apply on the Parivahan Sarathi portal. Documents: Form 2 (application for learner's licence), proof of age, proof of address, recent passport-size photographs, and Form 1 (self-declaration of physical fitness). Form 1A medical certificate is needed for transport vehicles and for older applicants. Accepted age proof includes birth certificate, school leaving certificate, Aadhaar or passport; address proof includes Aadhaar, passport, voter ID or utility bills. Minimum age is 18 for a motor vehicle with gears, 16 for gearless vehicles up to 50cc with guardian consent."
+## What real usage taught me (first two days)
 
-c) pan_new | New PAN card | https://www.incometaxindia.gov.in | "Individuals need proof of identity, proof of address and proof of date of birth. Accepted documents include Aadhaar, Indian passport, driving licence and voter ID. The name on every document must match the name in the application exactly. Rules changed in 2026: check whether Aadhaar alone is accepted for date of birth or whether a separate proof of date of birth is needed. Apply through the Protean (NSDL) or UTIITSL portals."
+- **116 visitors, fewer than 1 in 10 reached a checklist.** I added step-by-step funnel tracking to find where people drop off.
+- **One person needed three tries to sign up**, one of them with "gma8l.com". The sign-in page now suggests "Did you mean gmail.com?".
+- **One click on feedback saved two or three rows.** Feedback is now limited to one per checklist per visitor.
+- **The only negative review said the passport list missed education proof and police verification.** Both are now in, taken from passportindia.gov.in.
 
-d) nsp_scholarship | National Scholarship Portal application | https://scholarships.gov.in | "Register once on NSP (One-Time Registration). Commonly needed: Aadhaar (or Aadhaar enrolment receipt), a bank account in the student's own name seeded with Aadhaar for direct benefit transfer, income certificate, caste or community certificate if applying under a category, previous year marksheet, fee receipt, bonafide or student certificate from the institution, passport-size photo. Exact documents depend on the scheme. Note: Karnataka state scholarships go through the state SSP portal, not NSP."
+## Safety and privacy
 
-e) bank_kyc | Open a bank account (KYC) | https://www.rbi.org.in | "Banks need PAN (or Form 60 if you have no PAN) and one Officially Valid Document (OVD): passport, driving licence, proof of possession of Aadhaar, voter ID, NREGA job card signed by a state official, or letter from the National Population Register. If the OVD shows your current address, it works as both identity and address proof. People without any OVD can open a 'small account' with limits."
+- Aadhaar and PAN numbers are removed from what you type before anything reaches the AI.
+- No document photos, uploads or ID numbers are ever stored, only document names and expiry dates.
+- Requests to fake or edit a certificate are refused.
+- If the AI fails, the app still shows the official document list instead of an error.
 
-- `user_documents` (user_id, doc_type, expiry_date, created_at), `checklists`, `feedback` tables with row-level security so users only see their own data; admin page reads aggregates only.
+## How it's built
 
-FOOTER: "DocAgent Lite is a student project. It is not affiliated with any government body." plus a link to a short privacy page.
+- **App:** built with [Lovable](https://lovable.dev): TanStack Start, React, Tailwind.
+- **Data and sign-in:** Lovable Cloud (Postgres with row-level security, email magic links).
+- **AI:** an OpenAI model through Lovable's AI gateway, answering in a fixed JSON format checked against a schema. If the gateway runs out of credits, the app switches to the owner's own Gemini key.
+- **Tests:** 81 automated tests (Vitest), covering the fallback, ID masking and checklist rules.
 
-Build it end to end with the seed data in place, then make sure the checklist flow works for all 5 tasks without signing in.
+## What's next
 
-This project was built with [Lovable](https://lovable.dev).
+- Always show each task's official steps, so the AI can't leave them out.
+- Voice input in Kannada and Hindi, for the Scaler x Wispr Flow "Build for Bharat" hackathon.
+- A second blind eval round after those fixes.
 
-**Live app**: https://docagent-lite.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/eeb7aade-2dac-484a-a11c-913bc09faaec).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Run it locally
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+git clone https://github.com/srujithhn/docagent-lite
+cd docagent-lite
+bun install
+bun run dev
+bun run test
 ```
+
+Built by [Srujith H N](https://www.linkedin.com/in/srujith-h-n-b7b000267), CSE at BMSIT, Bengaluru.
