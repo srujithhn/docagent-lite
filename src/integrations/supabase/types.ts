@@ -144,6 +144,16 @@ export type Database = {
     }
     Functions: {
       admin_metrics: { Args: never; Returns: Json }
+      submit_checklist_feedback: {
+        Args: {
+          p_checklist_id?: string
+          p_comment?: string
+          p_is_correct: boolean
+          p_session_id: string
+          p_task_key: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
