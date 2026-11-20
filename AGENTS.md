@@ -28,3 +28,6 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Document saves use the shared save helper and a database duplicate-prevention trigger; this preserves legacy duplicates while rejecting new ones and allowing expiry-only updates.
+- Admin is a public route that shows denial when signed out; its metrics RPC authorizes against the current authenticated account record before reading aggregates, so direct calls cannot bypass access control.

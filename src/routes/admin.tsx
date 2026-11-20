@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
-export const Route = createFileRoute("/_authenticated/admin")({
+export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
       { title: "Admin metrics — DocAgent Lite" },
@@ -28,13 +29,28 @@ type Metrics = {
 };
 
 function Admin() {
+  const { user, loading } = useAuth();
   const [m, setM] = useState<Metrics | null>(null);
   const [denied, setDenied] = useState(false);
   useEffect(() => {
-    supabase.rpc("admin_metrics").then(({ data, error }) => (error ? setDenied(true) : setM(data as unknown as Metrics)));
-  }, []);
+    let active = true;
+    setM(null);
+    setDenied(false);
+    if (loading) return;
+    async function load() {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!active) return;
+      if (!auth.user) { setDenied(true); return; }
+      const { data, error } = await supabase.rpc("admin_metrics");
+      if (!active) return;
+      if (error || !data) setDenied(true);
+      else setM(data as unknown as Metrics);
+    }
+    load().catch(() => { if (active) setDenied(true); });
+    return () => { active = false; };
+  }, [user?.id, loading]);
 
-  if (denied) return <p className="text-lg">This page is only for the app owner.</p>;
+  if (denied) return <p className="text-lg">Not authorised</p>;
   if (!m) return <p className="text-muted-foreground">Loading…</p>;
   const max = Math.max(1, ...m.per_day.map((d) => d.count));
   const share = m.feedback_total ? Math.round((m.thumbs_up / m.feedback_total) * 100) : 0;

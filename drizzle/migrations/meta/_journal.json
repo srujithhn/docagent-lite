@@ -8,6 +8,13 @@
       "when": 1795072383387,
       "tag": "0000_docagent_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795139297889,
+      "tag": "0001_prevent_duplicate_documents_and_secure_owner_metrics",
+      "breakpoints": true
     }
   ]
 }

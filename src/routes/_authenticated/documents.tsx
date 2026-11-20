@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ShieldCheck, Trash2 } from "lucide-react";
+import { Pencil, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { DOC_TYPES } from "@/lib/tasks";
+import { saveDocument, type DocumentEntry } from "@/lib/documents";
 
 export const Route = createFileRoute("/_authenticated/documents")({
   head: () => ({
@@ -22,12 +23,13 @@ export const Route = createFileRoute("/_authenticated/documents")({
   component: Documents,
 });
 
-type Doc = { id: string; doc_type: string; expiry_date: string | null };
-
 function Documents() {
-  const [docs, setDocs] = useState<Doc[]>([]);
+  const [docs, setDocs] = useState<DocumentEntry[]>([]);
   const [type, setType] = useState<string>("");
   const [expiry, setExpiry] = useState("");
+  const [editingId, setEditingId] = useState<string | undefined>();
+  const [duplicate, setDuplicate] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     const { data } = await supabase.from("user_documents").select("id, doc_type, expiry_date").order("created_at");
@@ -37,11 +39,28 @@ function Documents() {
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    if (!type) return;
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("user_documents").insert({ doc_type: type, expiry_date: expiry || null, user_id: u.user!.id });
-    if (error) { toast.error("Couldn't add that document."); return; }
-    setType(""); setExpiry(""); load();
+    if (!type || saving) return;
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { toast.error("Please sign in to save your document."); return; }
+      const result = await saveDocument(supabase, u.user.id, type, expiry, editingId);
+      if (result.duplicate) {
+        setEditingId(result.duplicate.id);
+        setExpiry(result.duplicate.expiry_date ?? "");
+        setDuplicate(true);
+        toast.error("You've already added this document");
+        return;
+      }
+      setType(""); setExpiry(""); setEditingId(undefined); setDuplicate(false); await load();
+    } catch {
+      toast.error(editingId ? "Couldn't update that document." : "Couldn't add that document.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  function edit(doc: DocumentEntry) {
+    setType(doc.doc_type); setExpiry(doc.expiry_date ?? ""); setEditingId(doc.id); setDuplicate(false);
   }
   async function remove(id: string) {
     await supabase.from("user_documents").delete().eq("id", id);
@@ -58,7 +77,7 @@ function Documents() {
       <form onSubmit={add} className="mt-6 grid gap-3 rounded-2xl border border-border p-5 sm:grid-cols-[1fr_auto_auto] sm:items-end">
         <div>
           <label className="mb-1 block text-sm font-bold">Document</label>
-          <Select value={type} onValueChange={setType}>
+          <Select value={type} onValueChange={(value) => { setType(value); setEditingId(undefined); setDuplicate(false); }} disabled={saving}>
             <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Choose a document" /></SelectTrigger>
             <SelectContent>{DOC_TYPES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
           </Select>
@@ -67,7 +86,8 @@ function Documents() {
           <label className="mb-1 block text-sm font-bold" htmlFor="exp">Expiry date <span className="font-normal text-muted-foreground">(optional)</span></label>
           <Input id="exp" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} className="h-12 text-base" />
         </div>
-        <Button type="submit" size="lg" className="h-12" disabled={!type}>Add</Button>
+        <Button type="submit" size="lg" className="h-12" disabled={!type || saving}>{editingId ? "Update expiry" : "Add"}</Button>
+        {duplicate && <p role="alert" className="text-sm text-muted-foreground sm:col-span-3">You've already added this document</p>}
       </form>
 
       <ul className="mt-6 divide-y divide-border rounded-2xl border border-border">
@@ -78,7 +98,10 @@ function Documents() {
               <p className="font-semibold">{d.doc_type}</p>
               <p className="text-sm text-muted-foreground">{d.expiry_date ? `Expires ${new Date(d.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : "No expiry"}</p>
             </div>
-            <Button variant="ghost" size="icon" aria-label={`Remove ${d.doc_type}`} onClick={() => remove(d.id)}><Trash2 /></Button>
+            <div className="flex shrink-0">
+              <Button variant="ghost" size="icon" aria-label={`Update expiry for ${d.doc_type}`} title="Update expiry" onClick={() => edit(d)}><Pencil /></Button>
+              <Button variant="ghost" size="icon" aria-label={`Remove ${d.doc_type}`} onClick={() => remove(d.id)}><Trash2 /></Button>
+            </div>
           </li>
         ))}
       </ul>

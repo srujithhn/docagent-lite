@@ -1,0 +1,3 @@
+- [x] Prevent duplicate document types, preserve existing rows, and allow expiry updates.
+- [x] Restrict admin page and metrics to the owner, including signed-out denial.
+- [x] Verify signed-out and owner flows, duplicate expiry flow, and seven regression tests; a live non-owner session could not be supplied.
