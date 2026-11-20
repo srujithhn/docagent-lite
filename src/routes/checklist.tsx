@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ThumbsDown, ThumbsUp, ExternalLink, AlertTriangle, Check, CircleDashed } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -46,16 +46,27 @@ function ChecklistPage() {
 
   async function submit() {
     if (!task) return;
+    try {
+      window.__lovableEvents?.track?.("project.generate_clicked", { task_key: task });
+    } catch { /* Analytics must never block generation. */ }
     setLoading(true);
     setError(null);
     setResult(null);
     const safeSituation = maskIds(situation);
     setSituation(safeSituation.text);
     try {
-      setResult(await run({ data: { taskKey: task, situation: safeSituation.text, idMasked: safeSituation.masked, sessionId: getSessionId() } }));
+      const nextResult = await run({ data: { taskKey: task, situation: safeSituation.text, idMasked: safeSituation.masked, sessionId: getSessionId() } });
+      setResult(nextResult);
+      try {
+        window.__lovableEvents?.track?.("project.checklist_shown", { task_key: task, source: nextResult.fallback ? "fallback" : "ai" });
+        if (nextResult.fallback) window.__lovableEvents?.track?.("project.generate_failed", { task_key: task, kind: "ai_unavailable" });
+      } catch { /* Analytics must never hide a checklist. */ }
       setTimeout(() => document.getElementById("result")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
+      try {
+        window.__lovableEvents?.track?.("project.generate_failed", { task_key: task, kind: "request_failed" });
+      } catch { /* Never send error messages or user input. */ }
     } finally {
       setLoading(false);
     }
@@ -71,7 +82,12 @@ function ChecklistPage() {
             key={t.key}
             role="radio"
             aria-checked={task === t.key}
-            onClick={() => setTask(t.key)}
+            onClick={() => {
+              setTask(t.key);
+              try {
+                window.__lovableEvents?.track?.("project.task_selected", { task_key: t.key });
+              } catch { /* Analytics must never block task selection. */ }
+            }}
             className={cn(
               "flex items-center gap-3 rounded-xl border-2 bg-card px-4 py-4 text-left text-base font-semibold transition",
               task === t.key ? "border-primary bg-accent text-accent-foreground" : "border-border hover:border-primary/40",
@@ -169,28 +185,43 @@ function ChecklistView({ result, held, taskKey, userId }: { result: Result; held
         </p>
       )}
 
-      <Feedback checklistId={result.checklistId} taskKey={taskKey} userId={userId} />
+      <Feedback checklistId={result.checklistId} taskKey={taskKey} />
     </section>
   );
 }
 
-function Feedback({ checklistId, taskKey, userId }: { checklistId: string | null; taskKey: string; userId: string | null }) {
+function Feedback({ checklistId, taskKey }: { checklistId: string | null; taskKey: string }) {
   const [vote, setVote] = useState<boolean | null>(null);
   const [comment, setComment] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const inFlight = useRef(false);
 
   async function send() {
-    if (vote === null) return;
-    const { error } = await supabase.from("feedback").insert({
-      checklist_id: checklistId,
-      task_key: taskKey,
-      is_correct: vote,
-      comment: comment.trim() || null,
-      user_id: userId,
-      session_id: getSessionId(),
-    });
-    if (error) toast.error("Couldn't save your feedback.");
-    else setSent(true);
+    if (vote === null || inFlight.current || sent) return;
+    inFlight.current = true;
+    setSending(true);
+    try {
+      // A narrow write-only RPC performs the conflict-ignore upsert without
+      // requiring anonymous SELECT permission on feedback for ON CONFLICT.
+      const { error } = await supabase.rpc("submit_checklist_feedback", {
+        ...(checklistId ? { p_checklist_id: checklistId } : {}),
+        p_task_key: taskKey,
+        p_is_correct: vote,
+        p_comment: comment.trim(),
+        p_session_id: getSessionId(),
+      });
+      if (error) throw error;
+      setSent(true);
+      try {
+        window.__lovableEvents?.track?.("project.feedback_submitted", { task_key: taskKey, is_correct: vote });
+      } catch { /* Analytics must never turn a saved response into an error. */ }
+    } catch {
+      toast.error("Couldn't save your feedback.");
+    } finally {
+      inFlight.current = false;
+      setSending(false);
+    }
   }
 
   if (sent) return <p className="rounded-xl bg-accent p-4 font-semibold text-accent-foreground">Thanks — that helps us improve.</p>;
@@ -198,13 +229,13 @@ function Feedback({ checklistId, taskKey, userId }: { checklistId: string | null
     <div className="rounded-2xl border border-border p-5">
       <p className="font-bold">Was this checklist correct?</p>
       <div className="mt-3 flex gap-3">
-        <Button variant={vote === true ? "default" : "outline"} size="lg" onClick={() => setVote(true)} aria-label="Yes, correct"><ThumbsUp /></Button>
-        <Button variant={vote === false ? "default" : "outline"} size="lg" onClick={() => setVote(false)} aria-label="No, not correct"><ThumbsDown /></Button>
+        <Button variant={vote === true ? "default" : "outline"} size="lg" disabled={sending} onClick={() => setVote(true)} aria-label="Yes, correct"><ThumbsUp /></Button>
+        <Button variant={vote === false ? "default" : "outline"} size="lg" disabled={sending} onClick={() => setVote(false)} aria-label="No, not correct"><ThumbsDown /></Button>
       </div>
       {vote !== null && (
         <>
           <Textarea className="mt-3 text-base" maxLength={1000} placeholder="Anything we got wrong? (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
-          <Button className="mt-3" onClick={send}>Send feedback</Button>
+          <Button className="mt-3" disabled={sending} onClick={send}>{sending ? "Sending…" : "Send feedback"}</Button>
         </>
       )}
     </div>

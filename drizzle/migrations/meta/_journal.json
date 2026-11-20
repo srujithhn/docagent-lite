@@ -15,6 +15,20 @@
       "when": 1795139297889,
       "tag": "0001_prevent_duplicate_documents_and_secure_owner_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795184596912,
+      "tag": "0002_unique_checklist_session_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795184809732,
+      "tag": "0003_private_idempotent_feedback_submission",
+      "breakpoints": true
     }
   ]
 }

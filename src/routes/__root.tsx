@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
 import { supabase } from "@/integrations/supabase/client";
@@ -129,14 +129,35 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const signedInUser = useRef<string | null>(null);
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") signedInUser.current = session?.user.id ?? null;
+      if (event === "SIGNED_OUT") signedInUser.current = null;
+      if (event === "SIGNED_IN" && session && signedInUser.current !== session.user.id) {
+        signedInUser.current = session.user.id;
+        try {
+          window.__lovableEvents?.track?.("project.signin_success");
+        } catch { /* Analytics must never interrupt session handling. */ }
+      }
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
+
+  useEffect(() => {
+    const beforeNavigate = router.subscribe("onBeforeNavigate", ({ toLocation }) => {
+      if (signedInUser.current || (toLocation.pathname !== "/documents" && toLocation.pathname !== "/expiring")) return;
+      try { sessionStorage.setItem("docagent_auth_from", toLocation.pathname); } catch { /* Storage is optional. */ }
+    });
+    const resolved = router.subscribe("onResolved", ({ toLocation }) => {
+      if (toLocation.pathname === "/auth") return;
+      try { sessionStorage.removeItem("docagent_auth_from"); } catch { /* Storage is optional. */ }
+    });
+    return () => { beforeNavigate(); resolved(); };
+  }, [router]);
 
   return (
     <QueryClientProvider client={queryClient}>

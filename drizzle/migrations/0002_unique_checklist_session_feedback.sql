@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX feedback_checklist_session_unique ON public.feedback (checklist_id, session_id);

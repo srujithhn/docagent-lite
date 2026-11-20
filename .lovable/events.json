@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "events": {
+    "project.auth_viewed": {
+      "event_schema_version": 1,
+      "description": "The sign-in page opens, optionally with a fixed protected-page origin.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "enum": [
+              "/documents",
+              "/expiring"
+            ]
+          }
+        }
+      }
+    },
+    "project.checklist_shown": {
+      "event_schema_version": 1,
+      "description": "A document checklist is shown to a student, counting the monthly checklist metric.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_key",
+          "source"
+        ],
+        "properties": {
+          "task_key": {
+            "type": "string",
+            "enum": [
+              "passport_fresh_adult",
+              "learner_licence_ka",
+              "pan_new",
+              "nsp_scholarship",
+              "bank_kyc"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "fallback"
+            ]
+          }
+        }
+      }
+    },
+    "project.feedback_submitted": {
+      "event_schema_version": 1,
+      "description": "Feedback is successfully submitted for a checklist without collecting comment text.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_key",
+          "is_correct"
+        ],
+        "properties": {
+          "task_key": {
+            "type": "string",
+            "enum": [
+              "passport_fresh_adult",
+              "learner_licence_ka",
+              "pan_new",
+              "nsp_scholarship",
+              "bank_kyc"
+            ]
+          },
+          "is_correct": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "project.generate_clicked": {
+      "event_schema_version": 1,
+      "description": "A student requests a checklist for the selected task.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_key"
+        ],
+        "properties": {
+          "task_key": {
+            "type": "string",
+            "enum": [
+              "passport_fresh_adult",
+              "learner_licence_ka",
+              "pan_new",
+              "nsp_scholarship",
+              "bank_kyc"
+            ]
+          }
+        }
+      }
+    },
+    "project.generate_failed": {
+      "event_schema_version": 1,
+      "description": "Generation returns an AI fallback or the checklist request fails; only a fixed error category is collected.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_key",
+          "kind"
+        ],
+        "properties": {
+          "task_key": {
+            "type": "string",
+            "enum": [
+              "passport_fresh_adult",
+              "learner_licence_ka",
+              "pan_new",
+              "nsp_scholarship",
+              "bank_kyc"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ai_unavailable",
+              "request_failed"
+            ]
+          }
+        }
+      }
+    },
+    "project.signin_success": {
+      "event_schema_version": 1,
+      "description": "A new authenticated identity is established, excluding initial session restoration and repeated auth notifications.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    },
+    "project.signup_submitted": {
+      "event_schema_version": 1,
+      "description": "The email-link request is accepted; this counts submissions for new and returning accounts, not confirmed signups.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      }
+    },
+    "project.task_selected": {
+      "event_schema_version": 1,
+      "description": "A student selects a checklist task.",
+      "privacy": {
+        "contains_pii": false,
+        "purpose": "product_analytics"
+      },
+      "properties_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_key"
+        ],
+        "properties": {
+          "task_key": {
+            "type": "string",
+            "enum": [
+              "passport_fresh_adult",
+              "learner_licence_ka",
+              "pan_new",
+              "nsp_scholarship",
+              "bank_kyc"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

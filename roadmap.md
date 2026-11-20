@@ -5,3 +5,7 @@
 - [x] Correct declared document ownership and mask ID numbers.
 - [x] Add prominent request headlines and conditional checklist display.
 - [x] Test wrapped stream failures and checklist rules; verify live AI answers and simulated fallback for all five tasks on phone/desktop; confirm clean TypeScript/build output.
+- [x] Add eight privacy-safe funnel events through Lovable's injected event pipeline; native page views/sessions replace the requested separate events table/helper, and all eight catalog schemas validate.
+- [x] Remove three surplus feedback rows, enforce one feedback per checklist/session, and prevent concurrent submissions; a narrow write-only RPC preserves feedback privacy and safely ignores retries.
+- [x] Clarify sign-in and offer optional email typo corrections.
+- [x] Run all 77 regression tests; verify real anonymous and signed-in checklist/feedback, one-click email correction, redirect origin, once-only sign-in tracking, direct retry idempotence, forged-session rejection, and phone/desktop layouts; build OK. Live collector ingestion requires use of the preview/published app, not localhost.

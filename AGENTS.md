@@ -32,3 +32,6 @@ use the editor.
 - Document saves use the shared save helper and a database duplicate-prevention trigger; this preserves legacy duplicates while rejecting new ones and allowing expiry-only updates.
 - Admin is a public route that shows denial when signed out; its metrics RPC authorizes against the current authenticated account record before reading aggregates, so direct calls cannot bypass access control.
 - Checklist schemas, source-only fallback, ID masking, and ownership resolution live in a browser-safe shared module; server-only AI diagnostics redact sensitive values, and every AI failure returns source data without retries.
+- Funnel instrumentation calls the injected Lovable events global directly in existing handlers, catches analytics failures, and relies on native page views/session IDs; never collect typed text, email addresses, or ID numbers.
+- Feedback uses a checklist/session unique index and a narrow write-only database RPC that validates task/session/owner and conflict-ignores repeats; anonymous callers never need SELECT or UPDATE access to feedback.
+- Email correction uses a pure provider-domain edit-distance function and an optional suggestion; never silently change addresses or block submission.
