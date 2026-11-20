@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { supabase } from "@/integrations/supabase/client";
 import { saveDocument } from "./documents";
+import { DOC_TYPES } from "./tasks";
 
 function mockClient(existing: unknown, insertError: unknown = null) {
   const query = {
@@ -15,13 +16,13 @@ function mockClient(existing: unknown, insertError: unknown = null) {
 }
 
 describe("Document saves", () => {
-  it("does not insert a document type already saved by the user", async () => {
-    const existing = { id: "existing", doc_type: "Passport", expiry_date: "2027-04-01" };
+  it.each(DOC_TYPES)("does not insert %s when already saved by the user", async (docType) => {
+    const existing = { id: "existing", doc_type: docType, expiry_date: "2027-04-01" };
     const { client, query } = mockClient(existing);
-    expect(await saveDocument(client, "owner", "Passport", "2028-04-01")).toEqual({ duplicate: existing });
+    expect(await saveDocument(client, "owner", docType, "2028-04-01")).toEqual({ duplicate: existing });
     expect(query.insert).not.toHaveBeenCalled();
     expect(query.eq).toHaveBeenCalledWith("user_id", "owner");
-    expect(query.eq).toHaveBeenCalledWith("doc_type", "Passport");
+    expect(query.eq).toHaveBeenCalledWith("doc_type", docType);
   });
 
   it("updates only the existing row's expiry date without inserting or deleting", async () => {
