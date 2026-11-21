@@ -45,8 +45,28 @@ export function documentStatus(
   return held && item.doc_type ? "missing" : null;
 }
 
+/** A source's "Steps:" block starts on its own line, followed by numbered lines ("1. ..."). */
+const STEPS_HEADING = /\r?\n[ \t]*Steps[^\r\n:]*:[ \t]*(?=\r?\n)/;
+
+/** The numbered official steps at the end of a source, or [] when the source has none. */
+export function officialSteps(sourceText: string): string[] {
+  const match = STEPS_HEADING.exec(sourceText);
+  if (!match) return [];
+  return sourceText
+    .slice(match.index + match[0].length)
+    .split(/\r?\n/)
+    .map((line) => /^\s*\d+[.)]\s+(.+?)\s*$/.exec(line)?.[1])
+    .filter((step): step is string => !!step);
+}
+
+/** The source without its steps block, so the no-AI document list only lists documents. */
+export function documentText(sourceText: string): string {
+  const match = STEPS_HEADING.exec(sourceText);
+  return match ? sourceText.slice(0, match.index) : sourceText;
+}
+
 export function officialFallback(sourceText: string): ChecklistOutput {
-  const items = sourceText
+  const items = documentText(sourceText)
     .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z])|;\s*/)
     .map((text) => text.replace(/^\s*[-•]\s*/, "").trim())
     .filter(Boolean);

@@ -44,6 +44,7 @@ const run = generateChecklist as unknown as (input: {
   idMasked: boolean;
   output: { groups: { name: string }[] };
   source: typeof mocks.source;
+  steps: string[];
 }>;
 
 beforeEach(() => {
@@ -146,5 +147,34 @@ describe("Own Gemini key as backup", () => {
     expect(isOutOfCredits(new Error("x", { cause: { statusCode: 402 } }))).toBe(true);
     expect(isOutOfCredits({ statusCode: 429 })).toBe(false);
     expect(isOutOfCredits(null)).toBe(false);
+  });
+});
+
+describe("Official steps in the response", () => {
+  it("returns the source's steps even when the AI fails", async () => {
+    const original = mocks.source.source_text;
+    mocks.source.source_text = `${original}\nSteps:\n1. Bring your OVD to the bank.\n2. Complete KYC.`;
+    mocks.stream.mockImplementation(() => {
+      throw new Error("gateway down");
+    });
+    try {
+      const result = await run({
+        data: { taskKey: "bank_kyc", situation: "", sessionId: "s", idMasked: false },
+      });
+      expect(result.steps).toEqual(["Bring your OVD to the bank.", "Complete KYC."]);
+      expect(result.fallback).toBe(true);
+    } finally {
+      mocks.source.source_text = original;
+    }
+  });
+
+  it("returns no steps for a source without a steps block", async () => {
+    mocks.stream.mockImplementation(() => {
+      throw new Error("gateway down");
+    });
+    const result = await run({
+      data: { taskKey: "bank_kyc", situation: "", sessionId: "s", idMasked: false },
+    });
+    expect(result.steps).toEqual([]);
   });
 });

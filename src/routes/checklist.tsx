@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { ThumbsDown, ThumbsUp, ExternalLink, AlertTriangle, Check, CircleDashed } from "lucide-react";
+import { ThumbsDown, ThumbsUp, ExternalLink, AlertTriangle, Check, CircleDashed, ListOrdered } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -178,6 +178,13 @@ function ChecklistView({ result, held, taskKey, userId }: { result: Result; held
         </div>
       ))}
 
+      <OfficialSteps
+        steps={result.steps ?? []}
+        taskName={source.task_name}
+        officialUrl={source.official_url}
+        open={output.show_checklist}
+      />
+
       {output.not_in_sources && (
         <p className="rounded-lg border border-border p-4 text-muted-foreground">
           {output.not_in_sources}{" "}
@@ -187,6 +194,57 @@ function ChecklistView({ result, held, taskKey, userId }: { result: Result; held
 
       <Feedback checklistId={result.checklistId} taskKey={taskKey} />
     </section>
+  );
+}
+
+function OfficialSteps({
+  steps,
+  taskName,
+  officialUrl,
+  open,
+}: {
+  steps: string[];
+  taskName: string;
+  officialUrl: string;
+  open: boolean;
+}) {
+  if (steps.length === 0) return null;
+  const list = (
+    <ol className="mt-3 list-decimal space-y-2 pl-6">
+      {steps.map((step, i) => (
+        <li key={i} className="pl-1">
+          {step}
+        </li>
+      ))}
+    </ol>
+  );
+  const note = (
+    <p className="mt-3 text-sm text-muted-foreground">
+      From the official source. If your case is different, check{" "}
+      <a href={officialUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary">
+        the official site
+      </a>
+      .
+    </p>
+  );
+  if (open) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
+          <ListOrdered className="h-5 w-5 text-primary" />
+          Steps to apply
+        </h3>
+        {list}
+        {note}
+      </div>
+    );
+  }
+  return (
+    <details className="rounded-2xl border border-border bg-card p-5 shadow-soft">
+      <summary className="cursor-pointer font-semibold">Standard steps for: {taskName}</summary>
+      {list}
+      {note}
+    </details>
   );
 }
 

@@ -3,6 +3,8 @@ import {
   maskIds,
   documentStatus,
   officialFallback,
+  officialSteps,
+  documentText,
   withOfficialFallback,
   outputSchema,
 } from "./checklist";
@@ -113,5 +115,35 @@ describe("Official fallback", () => {
     expect(outputSchema.safeParse({ groups: [], warnings: [], not_in_sources: null }).success).toBe(
       false,
     );
+  });
+});
+
+describe("Official steps", () => {
+  const source =
+    "Carry Aadhaar. Bring PAN.\nSteps:\n1. Register on the portal.\n2. Pay the fee online.\n3) Book a slot and take the test.";
+
+  it("reads the numbered steps after the Steps heading", () => {
+    expect(officialSteps(source)).toEqual([
+      "Register on the portal.",
+      "Pay the fee online.",
+      "Book a slot and take the test.",
+    ]);
+  });
+
+  it("accepts a named heading and Windows line endings", () => {
+    expect(
+      officialSteps("Docs.\r\nSteps on Sarathi:\r\n1. Fill in Form 2.\r\n2. Upload documents."),
+    ).toEqual(["Fill in Form 2.", "Upload documents."]);
+  });
+
+  it("returns no steps when the source has no steps block", () => {
+    expect(officialSteps("Steps: register, pay the fee, then book a slot.")).toEqual([]);
+    expect(officialSteps("Banks need PAN.")).toEqual([]);
+  });
+
+  it("keeps steps out of the no-AI document list", () => {
+    expect(documentText(source)).toBe("Carry Aadhaar. Bring PAN.");
+    const items = officialFallback(source).groups[0]?.items.map((i) => i.document);
+    expect(items).toEqual(["Carry Aadhaar.", "Bring PAN."]);
   });
 });
